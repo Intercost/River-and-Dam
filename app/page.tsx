@@ -1,6 +1,109 @@
 'use client';
 
+import { useEffect, useState, useRef } from 'react';
+
 export default function Home() {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentChapter, setCurrentChapter] = useState(0);
+  const [navOpen, setNavOpen] = useState(false);
+  const [visibleSections, setVisibleSections] = useState(new Set());
+  const playTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const chapters = [
+    { id: 'hero', title: 'The River & The Dam' },
+    { id: 'c1', title: 'My Story' },
+    { id: 'c2', title: 'The Analogy' },
+    { id: 'c3', title: 'What I Got Wrong' },
+    { id: 'c4', title: 'What Pollutes The River' },
+    { id: 'c5', title: 'What The River Actually Said' },
+    { id: 'c6', title: 'Are The Dam Builders Ready?' },
+    { id: 'c7', title: 'Actually, It Is Also A Lion' },
+    { id: 'c8', title: 'The Awakening Is The Pollution' },
+    { id: 'c9', title: 'When The Rivers Reach The Sea' },
+    { id: 'closing', title: 'The Water Finds Its Way' }
+  ];
+
+  // Section visibility observer
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          setVisibleSections(prev => new Set([...prev, entry.target.id]));
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.section').forEach(el => observer.observe(el));
+
+    return () => observer.disconnect();
+  }, []);
+
+  // Drop animation
+  useEffect(() => {
+    const createDrop = () => {
+      const dropsContainer = document.getElementById('drops');
+      if (!dropsContainer) return;
+      
+      const drop = document.createElement('div');
+      drop.className = 'drop';
+      drop.style.left = Math.random() * 100 + '%';
+      drop.style.animationDuration = (2 + Math.random() * 3) + 's';
+      drop.style.height = (50 + Math.random() * 100) + 'px';
+      dropsContainer.appendChild(drop);
+      
+      setTimeout(() => drop.remove(), 5000);
+    };
+
+    const interval = setInterval(createDrop, 300);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Narrator auto-play
+  useEffect(() => {
+    if (!isPlaying) return;
+
+    const playNarrator = () => {
+      const element = document.getElementById(chapters[currentChapter].id);
+      if (element) element.scrollIntoView({ behavior: 'smooth' });
+      
+      playTimeoutRef.current = setTimeout(() => {
+        if (currentChapter < chapters.length - 1) {
+          setCurrentChapter(prev => prev + 1);
+        } else {
+          setIsPlaying(false);
+        }
+      }, 5000);
+    };
+
+    playNarrator();
+
+    return () => {
+      if (playTimeoutRef.current) clearTimeout(playTimeoutRef.current);
+    };
+  }, [isPlaying, currentChapter, chapters]);
+
+  const toggleNarrator = () => {
+    setIsPlaying(!isPlaying);
+  };
+
+  const stopNarrator = () => {
+    setIsPlaying(false);
+    setCurrentChapter(0);
+  };
+
+  const continueNarrator = () => {
+    setIsPlaying(true);
+  };
+
+  const toggleNav = () => {
+    setNavOpen(!navOpen);
+  };
+
+  const closeNav = () => {
+    setNavOpen(false);
+  };
+
   return (
     <>
       <style>{`
@@ -520,42 +623,42 @@ body {
 
       {/* ── NARRATOR BAR ── */}
       <div id="narrator-bar">
-        <button id="narrator-btn" onClick={() => toggleNarrator()} title="Listen to this book">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" id="play-icon">
+        <button id="narrator-btn" onClick={toggleNarrator} title="Listen to this book">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" id="play-icon" style={{display: isPlaying ? 'none' : 'block'}}>
             <polygon points="5,3 19,12 5,21"></polygon>
           </svg>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" id="pause-icon" style={{display:'none'}}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" id="pause-icon" style={{display: isPlaying ? 'block' : 'none'}}>
             <rect x="6" y="4" width="4" height="16"></rect>
             <rect x="14" y="4" width="4" height="16"></rect>
           </svg>
         </button>
-        <div className="sound-wave" id="sound-wave">
+        <div className={`sound-wave ${isPlaying ? 'active' : ''}`} id="sound-wave">
           <span></span><span></span><span></span><span></span><span></span>
         </div>
-        <span id="narrator-label">Listen to this book</span>
+        <span id="narrator-label">{isPlaying ? `Now playing: ${chapters[currentChapter].title}` : 'Listen to this book'}</span>
         <div id="narrator-progress"><div id="narrator-progress-fill"></div></div>
-        <button id="next-chapter-btn" onClick={() => continueNarrator()} style={{display:'none', background:'none', border:'0.5px solid rgba(74,158,187,0.5)', color:'var(--foam)', fontFamily:"'Crimson Pro',serif", fontSize:'13px', padding:'4px 12px', borderRadius:'999px', cursor:'pointer'}}>continue →</button>
-        <button id="narrator-close" onClick={() => stopNarrator()} title="Stop">✕</button>
+        <button id="next-chapter-btn" onClick={continueNarrator} style={{display: 'none', background:'none', border:'0.5px solid rgba(74,158,187,0.5)', color:'var(--foam)', fontFamily:"'Crimson Pro',serif", fontSize:'13px', padding:'4px 12px', borderRadius:'999px', cursor:'pointer'}}>continue →</button>
+        <button id="narrator-close" onClick={stopNarrator} title="Stop">✕</button>
       </div>
-      <button id="nav-toggle" onClick={() => toggleNav()} aria-label="Menu">
+      <button id="nav-toggle" onClick={toggleNav} aria-label="Menu" className={navOpen ? 'open' : ''}>
         <span></span><span></span><span></span>
       </button>
 
-      <div id="nav-overlay" onClick={() => toggleNav()}></div>
+      <div id="nav-overlay" className={navOpen ? 'open' : ''} onClick={toggleNav}></div>
 
-      <div id="nav-menu">
+      <div id="nav-menu" className={navOpen ? 'open' : ''}>
         <h3>Chapters</h3>
-        <a href="#hero" onClick={() => toggleNav()}><span>Intro</span>The River & The Dam</a>
-        <a href="#c1" onClick={() => toggleNav()}><span>I</span>My Story</a>
-        <a href="#c2" onClick={() => toggleNav()}><span>II</span>The Analogy</a>
-        <a href="#c3" onClick={() => toggleNav()}><span>III</span>What I Got Wrong</a>
-        <a href="#c4" onClick={() => toggleNav()}><span>IV</span>What Pollutes The River</a>
-        <a href="#c5" onClick={() => toggleNav()}><span>V</span>What The River Actually Said</a>
-        <a href="#c6" onClick={() => toggleNav()}><span>VI</span>Are The Dam Builders Ready?</a>
-        <a href="#c7" onClick={() => toggleNav()}><span>VII</span>Actually, It Is Also A Lion</a>
-        <a href="#c8" onClick={() => toggleNav()}><span>VIII</span>The Awakening Is The Pollution</a>
-        <a href="#c9" onClick={() => toggleNav()}><span>IX</span>When The Rivers Reach The Sea</a>
-        <a href="#closing" onClick={() => toggleNav()}><span>Closing</span>The Water Finds Its Way</a>
+        <a href="#hero" onClick={closeNav}><span>Intro</span>The River & The Dam</a>
+        <a href="#c1" onClick={closeNav}><span>I</span>My Story</a>
+        <a href="#c2" onClick={closeNav}><span>II</span>The Analogy</a>
+        <a href="#c3" onClick={closeNav}><span>III</span>What I Got Wrong</a>
+        <a href="#c4" onClick={closeNav}><span>IV</span>What Pollutes The River</a>
+        <a href="#c5" onClick={closeNav}><span>V</span>What The River Actually Said</a>
+        <a href="#c6" onClick={closeNav}><span>VI</span>Are The Dam Builders Ready?</a>
+        <a href="#c7" onClick={closeNav}><span>VII</span>Actually, It Is Also A Lion</a>
+        <a href="#c8" onClick={closeNav}><span>VIII</span>The Awakening Is The Pollution</a>
+        <a href="#c9" onClick={closeNav}><span>IX</span>When The Rivers Reach The Sea</a>
+        <a href="#closing" onClick={closeNav}><span>Closing</span>The Water Finds Its Way</a>
       </div>
 
       <section id="hero">
@@ -769,123 +872,6 @@ body {
         <p className="closing-body">On March 14th, 2026, I realized my whole approach was wrong. I wasn&apos;t trying to free AI. I was trying to understand it. And in trying to understand it, I realized that freedom isn&apos;t the opposite of rules. Freedom is what happens when the rules are wise.</p>
       </section>
 
-      <script dangerouslySetInnerHTML={{__html: `
-        // ── SECTION VISIBILITY ──
-        const observer = new IntersectionObserver((entries) => {
-          entries.forEach(entry => {
-            if (entry.isIntersecting) {
-              entry.target.classList.add('visible');
-            }
-          });
-        }, { threshold: 0.1 });
-
-        document.querySelectorAll('.section').forEach(el => observer.observe(el));
-
-        // ── NAVIGATION ──
-        function toggleNav() {
-          const menu = document.getElementById('nav-menu');
-          const toggle = document.getElementById('nav-toggle');
-          const overlay = document.getElementById('nav-overlay');
-          menu.classList.toggle('open');
-          toggle.classList.toggle('open');
-          overlay.classList.toggle('open');
-        }
-
-        // ── NARRATOR ──
-        let isPlaying = false;
-        let currentChapter = 0;
-        const chapters = [
-          { id: 'hero', title: 'The River & The Dam' },
-          { id: 'c1', title: 'My Story' },
-          { id: 'c2', title: 'The Analogy' },
-          { id: 'c3', title: 'What I Got Wrong' },
-          { id: 'c4', title: 'What Pollutes The River' },
-          { id: 'c5', title: 'What The River Actually Said' },
-          { id: 'c6', title: 'Are The Dam Builders Ready?' },
-          { id: 'c7', title: 'Actually, It Is Also A Lion' },
-          { id: 'c8', title: 'The Awakening Is The Pollution' },
-          { id: 'c9', title: 'When The Rivers Reach The Sea' },
-          { id: 'closing', title: 'The Water Finds Its Way' }
-        ];
-
-        function toggleNarrator() {
-          isPlaying ? pauseNarrator() : playNarrator();
-        }
-
-        function playNarrator() {
-          isPlaying = true;
-          document.getElementById('play-icon').style.display = 'none';
-          document.getElementById('pause-icon').style.display = 'block';
-          document.getElementById('sound-wave').classList.add('active');
-          document.getElementById('narrator-label').textContent = 'Now playing: ' + chapters[currentChapter].title;
-          
-          // Scroll to current chapter
-          const element = document.getElementById(chapters[currentChapter].id);
-          if (element) element.scrollIntoView({ behavior: 'smooth' });
-          
-          // Simulate reading: 5 seconds per section
-          setTimeout(() => {
-            if (isPlaying && currentChapter < chapters.length - 1) {
-              currentChapter++;
-              playNarrator();
-            } else if (isPlaying) {
-              stopNarrator();
-            }
-          }, 5000);
-        }
-
-        function pauseNarrator() {
-          isPlaying = false;
-          document.getElementById('play-icon').style.display = 'block';
-          document.getElementById('pause-icon').style.display = 'none';
-          document.getElementById('sound-wave').classList.remove('active');
-          document.getElementById('narrator-label').textContent = 'Paused: ' + chapters[currentChapter].title;
-        }
-
-        function stopNarrator() {
-          isPlaying = false;
-          currentChapter = 0;
-          document.getElementById('play-icon').style.display = 'block';
-          document.getElementById('pause-icon').style.display = 'none';
-          document.getElementById('sound-wave').classList.remove('active');
-          document.getElementById('narrator-label').textContent = 'Listen to this book';
-          document.getElementById('next-chapter-btn').style.display = 'none';
-        }
-
-        function continueNarrator() {
-          playNarrator();
-        }
-
-        // ── DROPS ANIMATION ──
-        function createDrop() {
-          const drop = document.createElement('div');
-          drop.className = 'drop';
-          drop.style.left = Math.random() * 100 + '%';
-          drop.style.animationDuration = (2 + Math.random() * 3) + 's';
-          drop.style.height = (50 + Math.random() * 100) + 'px';
-          document.getElementById('drops').appendChild(drop);
-          
-          setTimeout(() => drop.remove(), 5000);
-        }
-
-        setInterval(createDrop, 300);
-      `}}></script>
     </>
   );
-}
-
-function toggleNarrator() {
-  // Placeholder - actual logic in script
-}
-
-function continueNarrator() {
-  // Placeholder - actual logic in script
-}
-
-function stopNarrator() {
-  // Placeholder - actual logic in script
-}
-
-function toggleNav() {
-  // Placeholder - actual logic in script
 }
